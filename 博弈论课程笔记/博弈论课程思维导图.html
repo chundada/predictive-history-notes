@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>博弈论课程思维导图</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e1a;color:#e2e8f0;font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;overflow:hidden;width:100vw;height:100vh}
+canvas{display:block;width:100%;height:100%;cursor:grab}
+canvas:active{cursor:grabbing}
+#controls{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:10}
+#controls button{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);color:#f59e0b;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;transition:all .2s}
+#controls button:hover{background:rgba(245,158,11,.3)}
+#info{position:fixed;top:16px;left:20px;color:rgba(255,255,255,.4);font-size:12px;z-index:10}
+#legend{position:fixed;top:16px;right:20px;background:rgba(15,23,42,.9);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:14px 18px;z-index:10;font-size:12px}
+#legend h3{color:#f59e0b;margin-bottom:8px;font-size:13px}
+.legend-item{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+#tooltip{position:fixed;display:none;background:rgba(15,23,42,.95);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:12px 16px;max-width:280px;font-size:12px;line-height:1.6;z-index:20;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+#tooltip .tt-title{color:#f59e0b;font-weight:700;font-size:14px;margin-bottom:4px}
+#tooltip .tt-lect{color:rgba(255,255,255,.4);font-size:11px;margin-bottom:6px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="info">滚轮缩放 · 拖拽平移 · 悬停查看详情</div>
+<div id="legend">
+  <h3>课程阶段</h3>
+  <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>基础框架 (#1-#8)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>美伊战争 (#9-#11)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div>深层结构 (#12-#16)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>金融与秩序 (#17-#19)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#06b6d4"></div>全球博弈 (#20-#29)</div>
+</div>
+<div id="tooltip"><div class="tt-title"></div><div class="tt-lect"></div><div class="tt-body"></div></div>
+<div id="controls">
+  <button onclick="zoomIn()">放大 +</button>
+  <button onclick="zoomOut()">缩小 -</button>
+  <button onclick="resetView()">重置视图</button>
+</div>
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const tooltip=document.getElementById('tooltip');
+let W,H,dpr;
+let ox=0,oy=0,scale=1;
+let dragging=false,lastX,lastY;
+let hovered=null;
+
+function resize(){
+  dpr=window.devicePixelRatio||1;
+  W=window.innerWidth;H=window.innerHeight;
+  canvas.width=W*dpr;canvas.height=H*dpr;
+  canvas.style.width=W+'px';canvas.style.height=H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  draw();
+}
+window.addEventListener('resize',resize);
+
+// ===== DATA =====
+const phases=[
+  {id:'phase1',label:'基础框架',sub:'Lecture #1-#8',color:'#f59e0b',desc:'博弈论基本概念、框架和分析工具'},
+  {id:'phase2',label:'美伊战争',sub:'Lecture #9-#11',color:'#ef4444',desc:'第三次世界大战的开端与分析'},
+  {id:'phase3',label:'深层结构',sub:'Lecture #12-#16',color:'#8b5cf6',desc:'末世论、秘密社团、文明兴衰'},
+  {id:'phase4',label:'金融与秩序',sub:'Lecture #17-#19',color:'#22c55e',desc:'金融体系、军工复合体、海上霸权'},
+  {id:'phase5',label:'全球博弈',sub:'Lecture #20-#29',color:'#06b6d4',desc:'AI、大国博弈、未来预测'},
+];
+
+const lectures=[
+  {id:'L01',label:'约会游戏',en:'The Dating Game',phase:'phase1',x:0,y:0,
+   topics:['五种传统理论','博弈论三要素：参与者·规则·激励','纳什均衡','上层结构','生育率危机'],
+   desc:'用5男5女婚姻市场推演博弈论框架，揭示地位驱动vs繁衍驱动的冲突'},
+  {id:'L02',label:'为什么学校很糟糕',en:'Why Schools Suck',phase:'phase1',x:0,y:0,
+   topics:['教育系统利益相关者','深圳中学改革案例','零和竞争体制','囚徒困境'],
+   desc:'博弈论分析教育系统为何失效——激励结构导致系统性失败'},
+  {id:'L03',label:'富爸爸穷爸爸',en:'Rich Dad Poor Dad',phase:'phase1',x:0,y:0,
+   topics:['棉花糖实验批判','成长型思维批判','家庭SES决定论','成功学是游戏'],
+   desc:'成功的真正预测因素是家庭社会经济地位，而非个人品质'},
+  {id:'L04',label:'移民陷阱',en:'The Immigration Trap',phase:'phase1',x:0,y:0,
+   topics:['东亚男性困境','游戏规则为你输而设计','最优策略：团结·生育·凝聚力'],
+   desc:'当有人邀请你玩他们的游戏时不要答应——规则是为你的失败设计的'},
+  {id:'L05',label:'世界游戏',en:'The World Game',phase:'phase1',x:0,y:0,
+   topics:['Ibn Khaldun·Asabiyyah','三指标：能量·开放度·凝聚力','边远部落征服富裕文明'],
+   desc:'财富是文明衰败的种子——贫穷但团结的群体总能征服富裕但分裂的文明'},
+  {id:'L06',label:'世界银行',en:"The World's Bank",phase:'phase1',x:0,y:0,
+   topics:['英格兰银行1694','利润私有化·损失社会化','三根支柱：金融·软实力·海军','洛克财产权'],
+   desc:'大英帝国如何演变为离岸金融体系——现代金融体系的DNA'},
+  {id:'L07',label:'美国的游戏',en:"America's Game",phase:'phase1',x:0,y:0,
+   topics:['解决英国三重局限','布雷顿森林体系','石油美元','中美博弈'],
+   desc:'美国创造了一个"开放游戏"——所有人都被邀请参与，但规则在美国手中'},
+  {id:'L08',label:'共产主义幽灵',en:'Communist Specter',phase:'phase1',x:0,y:0,
+   topics:['共产主义vs资本主义','消灭君主制·神权·民族主义','俄国革命的金融阴谋','马克思主义在中国'],
+   desc:'共产主义是资本主义的工具——两者都追求全球化的物质主义社会'},
+  {id:'L09',label:'美伊战争',en:'The US-Iran War',phase:'phase2',x:0,y:0,
+   topics:['哈梅内伊被暗杀','霍尔木兹海峡','非对称成本：5万vs100万','水文地缘政治','全球经济崩溃路径'],
+   desc:'第三次世界大战已经开始——中东局部战争通过华尔街摧毁美国帝国'},
+  {id:'L10',label:'非对称性定律',en:'Law of Asymmetry',phase:'phase2',x:0,y:0,
+   topics:['帝国三大优势','优势如何转化为劣势','精英过剩理论','历史案例'],
+   desc:'美国在所有指标上碾压伊朗，但帝国内部腐朽使其处于结构性劣势'},
+  {id:'L11',label:'升级定律',en:'Law of Escalation',phase:'phase2',x:0,y:0,
+   topics:['控制优于支配','校园霸凌实验','美伊升级阶梯对比','三大预测','成本金字塔'],
+   desc:'权力者的"面子"成为束缚，而灵活性诱使对手自我毁灭'},
+  {id:'L12',label:'末世论收敛定律',en:'Law of Eschatological Convergence',phase:'phase3',x:0,y:0,
+   topics:['胜利=质量×能量×协调','七大末世论体系','收敛点','2026-2028预测'],
+   desc:'不同宗教的极端末世叙事惊人地趋同于同一组地缘政治结果'},
+  {id:'L13',label:'爱泼斯坦的世界',en:"Epstein's World",phase:'phase3',x:0,y:0,
+   topics:['柏拉图的洞穴','全球金融秩序层级','洗脑系统','爱泼斯坦网络'],
+   desc:'现实是集体幻觉——美元和AI是提取人类意识的主要机制'},
+  {id:'L14',label:'近因定律',en:'Law of Proximity',phase:'phase3',x:0,y:0,
+   topics:['最贴近的游戏影响最大','国内冲突决定外交','美·以·伊朗内部分析','全球神权化趋势'],
+   desc:'要理解一个国家的外交行为，先看它的内部冲突'},
+  {id:'L15',label:'历史的回归',en:'Return of History',phase:'phase3',x:0,y:0,
+   topics:['福山"历史终结论"的终结','单极时刻三大支柱','三个生存条件','即将到来的危机'],
+   desc:'"历史终结"是幻觉——历史回来了，而且更暴力和不可预测'},
+  {id:'L16',label:'犹太和平崛起',en:'Pax Judaica Rising',phase:'phase3',x:0,y:0,
+   topics:['美国战略错误','以色列试镜','大以色列计划','雇佣兵篡位模式'],
+   desc:'雇佣兵最终篡位衰落的雇主——以色列正在上演这一古老模式'},
+  {id:'L17',label:'大重置',en:'The Great Reset',phase:'phase4',x:0,y:0,
+   topics:['金融崩溃是被策划的','银行创造货币','现代金融体系起源','2008金融危机','BIS的角色'],
+   desc:'金融崩溃不是意外——它是游戏大师精心设计的"重置"按钮'},
+  {id:'L18',label:'特朗普世界秩序',en:'Trump World Order',phase:'phase4',x:0,y:0,
+   topics:['特朗普"天才"假设','全球资源重新洗牌','从金融帝国到资源帝国'],
+   desc:'美国"愚蠢地"输掉战争，却迫使世界更加依赖北美资源'},
+  {id:'L19',label:'好莱坞-五角大楼',en:'Hollywood-Pentagon Complex',phase:'phase4',x:0,y:0,
+   topics:['战争升级','化肥危机','海盗国家','四大扼制点','德国征兵'],
+   desc:'一切军事行动的说法都是"宣传"——真正的危机是化肥和粮食'},
+  {id:'L20',label:'期中考试',en:'Mid-Term Examination',phase:'phase5',x:0,y:0,
+   topics:['停火是骗局','10点和平方案','世界体系运行理论','中国的本质'],
+   desc:'停火是骗局。战争将继续。理解游戏比判断对错更重要'},
+  {id:'L21',label:'世界大战特朗普',en:'World War Trump',phase:'phase5',x:0,y:0,
+   topics:['全球炼油厂大火','真实目标：中国','战争经济','民主党的虚假反对','国防战略'],
+   desc:'两党都支持战争——这不是特朗普的战争，这是美国的战争'},
+  {id:'L22',label:'民族国家的黄昏',en:'Twilight of the Nation-State',phase:'phase5',x:0,y:0,
+   topics:['战争形态演变','民族国家与80亿人口','三种民族国家理论','游戏重置'],
+   desc:'21世纪战争目标：用经济破坏使民众反对自己的政府'},
+  {id:'L23',label:'三战棋盘',en:'The WWIII Chessboard',phase:'phase5',x:0,y:0,
+   topics:['四大玩家','三大战场','浮士德文明根源','各国棋盘分析'],
+   desc:'理解每个玩家的国王、王后和棋子，才能预测三战走向'},
+  {id:'L24',label:'AI天启',en:'The AI Apocalypse',phase:'phase5',x:0,y:0,
+   topics:['布罗米奇的批评','AI是"上帝"','ChatGPT是幻觉','OpenAI三大策略'],
+   desc:'AI不是智能——它是幻觉。OpenAI不是科技公司——它是新兴宗教'},
+  {id:'L25',label:'特朗普访问中国',en:'Trump Visits China',phase:'phase5',x:0,y:0,
+   topics:['12万亿美元代表团','尼克松访华类比','美中大交易预估','现实是幻觉'],
+   desc:'表面冲突是幻觉——真正的游戏是美中合作重新分配全球资源'},
+  {id:'L26',label:'AI神圣帝国',en:'Holy Empire of AI',phase:'phase5',x:0,y:0,
+   topics:['阴谋论标准版本','错误但可预测','共济会与AI','神圣几何=AI逻辑'],
+   desc:'AI不是技术——它是新宗教。监控不是安全——它是神圣秩序的实现'},
+  {id:'L27',label:'普京加入聊天',en:'Putin Enters the Chat',phase:'phase5',x:0,y:0,
+   topics:['摧毁美元','中俄不同愿景','经济不对称','联盟构建','日本两难'],
+   desc:'普京的目标不是赢得乌克兰——而是摧毁美元'},
+  {id:'L28',label:'预测历史',en:'Predictive History',phase:'phase5',x:0,y:0,
+   topics:['三种解释','末世论趋同','秘密社团与加速主义','金钱炼金术vs AI新神'],
+   desc:'预测历史不是算命——而是理解驱动历史的力量'},
+  {id:'L29',label:'期末考试',en:'Final Examination',phase:'phase5',x:0,y:0,
+   topics:['无情的地缘博弈','美元衰落','人类韧性','技术双刃剑','生命的意义'],
+   desc:'一旦你理解了游戏，你就获得了预测能力，从而掌握自己的命运'},
+];
+
+// Core concepts
+const coreConcepts=[
+  {label:'参与者\nPlayers',x:0,y:0},
+  {label:'规则\nRules',x:0,y:0},
+  {label:'激励\nIncentives',x:0,y:0},
+];
+
+// Laws
+const laws=[
+  {label:'非对称性定律',en:'Asymmetry',x:0,y:0},
+  {label:'升级定律',en:'Escalation',x:0,y:0},
+  {label:'末世论收敛',en:'Eschatological Convergence',x:0,y:0},
+  {label:'近因定律',en:'Proximity',x:0,y:0},
+];
+
+// Layout
+function layout(){
+  const cx=W/2, cy=H/2;
+  // Center node
+  const center={x:cx,y:cy,r:70};
+  
+  // Core concepts - inner ring
+  const coreR=180;
+  coreConcepts.forEach((c,i)=>{
+    const a=-Math.PI/2+i*(Math.PI*2/3);
+    c.x=cx+Math.cos(a)*coreR;
+    c.y=cy+Math.sin(a)*coreR;
+    c.r=42;
+  });
+  
+  // Laws - second ring
+  const lawR=300;
+  laws.forEach((l,i)=>{
+    const a=-Math.PI/4+i*(Math.PI*2/4);
+    l.x=cx+Math.cos(a)*lawR;
+    l.y=cy+Math.sin(a)*lawR;
+    l.r=38;
+  });
+  
+  // Phase nodes - outer ring
+  const phaseR=460;
+  phases.forEach((p,i)=>{
+    const a=-Math.PI/2+i*(Math.PI*2/phases.length);
+    p.x=cx+Math.cos(a)*phaseR;
+    p.y=cy+Math.sin(a)*phaseR;
+    p.r=52;
+  });
+  
+  // Lecture nodes - fan out from phases
+  const lectR=180;
+  lectures.forEach((l,i)=>{
+    const pi=phases.findIndex(p=>p.id===l.phase);
+    const phase=phases[pi];
+    const phaseIdx=lectures.filter(ll=>ll.phase===l.phase).indexOf(l);
+    const count=lectures.filter(ll=>ll.phase===l.phase).length;
+    const baseA=Math.atan2(phase.y-cy,phase.x-cx);
+    const spread=Math.PI*0.35;
+    const startA=baseA-spread/2;
+    const step=count>1?spread/(count-1):0;
+    const a=count>1?startA+step*phaseIdx:baseA;
+    l.x=phase.x+Math.cos(a)*lectR;
+    l.y=phase.y+Math.sin(a)*lectR;
+    l.r=30;
+  });
+  
+  return {center};
+}
+
+let layoutData;
+let allNodes=[];
+let allEdges=[];
+
+function buildNodes(){
+  layoutData=layout();
+  allNodes=[];
+  allEdges=[];
+  
+  // Center
+  allNodes.push({type:'center',x:layoutData.center.x,y:layoutData.center.y,r:layoutData.center.r,label:'博弈论\nGame Theory',color:'#f59e0b',desc:'Prof. Jiang · Predictive History\n29讲完整课程系列'});
+  
+  // Core concepts
+  coreConcepts.forEach(c=>{
+    allNodes.push({type:'core',x:c.x,y:c.y,r:c.r,label:c.label,color:'#fbbf24'});
+    allEdges.push({from:layoutData.center,to:c,color:'rgba(251,191,36,.3)',width:2});
+  });
+  
+  // Laws
+  laws.forEach(l=>{
+    allNodes.push({type:'law',x:l.x,y:l.y,r:l.r,label:l.label,color:'#a78bfa'});
+    allEdges.push({from:layoutData.center,to:l,color:'rgba(167,139,250,.25)',width:1.5,dash:[6,4]});
+  });
+  
+  // Phases
+  phases.forEach(p=>{
+    allNodes.push({type:'phase',x:p.x,y:p.y,r:p.r,label:p.label,color:p.color,desc:p.sub+'\n'+p.desc});
+    allEdges.push({from:layoutData.center,to:p,color:p.color+'40',width:2});
+  });
+  
+  // Lectures
+  lectures.forEach(l=>{
+    const phase=phases.find(p=>p.id===l.phase);
+    allNodes.push({type:'lecture',x:l.x,y:l.y,r:l.r,label:l.label,color:phase.color,desc:l.desc,topics:l.topics,en:l.en,lectNum:l.id});
+    allEdges.push({from:phase,to:l,color:phase.color+'30',width:1});
+  });
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  
+  // Background gradient
+  const bg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,W*0.7);
+  bg.addColorStop(0,'#111827');
+  bg.addColorStop(1,'#0a0e1a');
+  ctx.fillStyle=bg;
+  ctx.fillRect(0,0,W,H);
+  
+  // Subtle grid
+  ctx.strokeStyle='rgba(255,255,255,.03)';
+  ctx.lineWidth=1;
+  for(let x=0;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+  for(let y=0;y<H;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+  
+  ctx.save();
+  ctx.translate(ox,oy);
+  ctx.scale(scale,scale);
+  
+  // Draw edges
+  allEdges.forEach(e=>{
+    ctx.beginPath();
+    ctx.strokeStyle=e.color;
+    ctx.lineWidth=e.width/scale;
+    if(e.dash)ctx.setLineDash(e.dash.map(d=>d/scale));
+    else ctx.setLineDash([]);
+    ctx.moveTo(e.from.x,e.from.y);
+    // Curved line
+    const mx=(e.from.x+e.to.x)/2;
+    const my=(e.from.y+e.to.y)/2;
+    const dx=e.to.x-e.from.x;
+    const dy=e.to.y-e.from.y;
+    const cx2=mx-dy*0.1;
+    const cy2=my+dx*0.1;
+    ctx.quadraticCurveTo(cx2,cy2,e.to.x,e.to.y);
+    ctx.stroke();
+  });
+  
+  // Draw nodes
+  allNodes.forEach(n=>{
+    const isHovered=hovered===n;
+    const r=isHovered?n.r*1.15:n.r;
+    
+    // Glow
+    if(n.type==='center'||n.type==='phase'||isHovered){
+      const glow=ctx.createRadialGradient(n.x,n.y,r*0.5,n.x,n.y,r*2);
+      glow.addColorStop(0,n.color+'30');
+      glow.addColorStop(1,n.color+'00');
+      ctx.fillStyle=glow;
+      ctx.beginPath();
+      ctx.arc(n.x,n.y,r*2,0,Math.PI*2);
+      ctx.fill();
+    }
+    
+    // Circle
+    ctx.beginPath();
+    ctx.arc(n.x,n.y,r,0,Math.PI*2);
+    ctx.fillStyle=isHovered?n.color+'30':n.color+'15';
+    ctx.fill();
+    ctx.strokeStyle=isHovered?n.color:n.color+'80';
+    ctx.lineWidth=isHovered?2.5:1.5;
+    ctx.stroke();
+    
+    // Label
+    ctx.fillStyle=isHovered?'#fff':n.color;
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    
+    if(n.type==='center'){
+      ctx.font='bold 16px "Noto Sans SC"';
+      const lines=n.label.split('\n');
+      lines.forEach((line,i)=>{
+        ctx.fillText(line,n.x,n.y+(i-(lines.length-1)/2)*20);
+      });
+    }else if(n.type==='phase'){
+      ctx.font='bold 13px "Noto Sans SC"';
+      ctx.fillText(n.label,n.x,n.y-6);
+      ctx.font='10px "Noto Sans SC"';
+      ctx.fillStyle=n.color+'99';
+      ctx.fillText(n.sub,n.x,n.y+10);
+    }else if(n.type==='law'){
+      ctx.font='bold 11px "Noto Sans SC"';
+      const lines=n.label.split('\n');
+      lines.forEach((line,i)=>{
+        ctx.fillText(line,n.x,n.y+(i-(lines.length-1)/2)*14);
+      });
+    }else if(n.type==='core'){
+      ctx.font='bold 12px "Noto Sans SC"';
+      const lines=n.label.split('\n');
+      lines.forEach((line,i)=>{
+        ctx.fillText(line,n.x,n.y+(i-(lines.length-1)/2)*16);
+      });
+    }else{
+      ctx.font='bold 10px "Noto Sans SC"';
+      ctx.fillText(n.label,n.x,n.y);
+    }
+  });
+  
+  ctx.restore();
+}
+
+// Hit test
+function hitTest(mx,my){
+  const x=(mx-ox)/scale;
+  const y=(my-oy)/scale;
+  for(let i=allNodes.length-1;i>=0;i--){
+    const n=allNodes[i];
+    const dx=x-n.x,dy=y-n.y;
+    if(dx*dx+dy*dy<=n.r*n.r)return n;
+  }
+  return null;
+}
+
+// Events
+canvas.addEventListener('mousedown',e=>{
+  dragging=true;lastX=e.clientX;lastY=e.clientY;
+});
+canvas.addEventListener('mousemove',e=>{
+  if(dragging){
+    ox+=e.clientX-lastX;oy+=e.clientY-lastY;
+    lastX=e.clientX;lastY=e.clientY;
+    draw();
+  }
+  const n=hitTest(e.clientX,e.clientY);
+  if(n!==hovered){
+    hovered=n;
+    canvas.style.cursor=n?'pointer':'grab';
+    if(n){
+      const tt=tooltip;
+      tt.style.display='block';
+      tt.style.left=Math.min(e.clientX+16,W-300)+'px';
+      tt.style.top=Math.min(e.clientY+16,H-200)+'px';
+      tt.querySelector('.tt-title').textContent=n.label.replace(/\n/g,' ');
+      tt.querySelector('.tt-lect').textContent=n.lectNum||n.en||n.sub||'';
+      let body=n.desc||'';
+      if(n.topics)body+='\n\n核心主题：'+n.topics.join(' · ');
+      tt.querySelector('.tt-body').textContent=body;
+    }else{
+      tooltip.style.display='none';
+    }
+    draw();
+  }
+});
+canvas.addEventListener('mouseup',()=>{dragging=false});
+canvas.addEventListener('mouseleave',()=>{dragging=false;hovered=null;tooltip.style.display='none';draw()});
+
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const delta=e.deltaY>0?0.9:1.1;
+  const mx=e.clientX,my=e.clientY;
+  ox=mx-(mx-ox)*delta;
+  oy=my-(my-oy)*delta;
+  scale*=delta;
+  scale=Math.max(0.2,Math.min(3,scale));
+  draw();
+},{passive:false});
+
+// Touch support
+let lastTouchDist=0;
+canvas.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){
+    dragging=true;lastX=e.touches[0].clientX;lastY=e.touches[0].clientY;
+  }else if(e.touches.length===2){
+    lastTouchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+  }
+});
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(e.touches.length===1&&dragging){
+    ox+=e.touches[0].clientX-lastX;oy+=e.touches[0].clientY-lastY;
+    lastX=e.touches[0].clientX;lastY=e.touches[0].clientY;
+    draw();
+  }else if(e.touches.length===2){
+    const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    const delta=d/lastTouchDist;
+    const mx=(e.touches[0].clientX+e.touches[1].clientX)/2;
+    const my=(e.touches[0].clientY+e.touches[1].clientY)/2;
+    ox=mx-(mx-ox)*delta;oy=my-(my-oy)*delta;
+    scale*=delta;scale=Math.max(0.2,Math.min(3,scale));
+    lastTouchDist=d;draw();
+  }
+},{passive:false});
+canvas.addEventListener('touchend',()=>{dragging=false});
+
+function zoomIn(){scale*=1.2;draw()}
+function zoomOut(){scale/=1.2;draw()}
+function resetView(){ox=0;oy=0;scale=1;draw()}
+
+// Init
+buildNodes();
+resize();
+// Center the view
+ox=W/2;oy=H/2;scale=0.85;
+draw();
+</script>
+</body>
+</html>

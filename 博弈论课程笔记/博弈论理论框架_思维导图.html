@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>博弈论理论框架 · 思维导图</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e1a;color:#e2e8f0;font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;overflow:hidden;width:100vw;height:100vh}
+canvas{display:block;width:100%;height:100%;cursor:grab}
+canvas:active{cursor:grabbing}
+#controls{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:10}
+#controls button{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);color:#f59e0b;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;transition:all .2s}
+#controls button:hover{background:rgba(245,158,11,.3)}
+#info{position:fixed;top:14px;left:18px;color:rgba(255,255,255,.35);font-size:11px;z-index:10;line-height:1.6}
+#tooltip{position:fixed;display:none;background:rgba(15,23,42,.97);border:1px solid rgba(245,158,11,.3);border-radius:12px;padding:14px 18px;max-width:320px;font-size:13px;line-height:1.7;z-index:20;pointer-events:none;box-shadow:0 12px 48px rgba(0,0,0,.6)}
+#tooltip .tt-title{color:#f59e0b;font-weight:700;font-size:15px;margin-bottom:2px}
+#tooltip .tt-sub{color:rgba(255,255,255,.35);font-size:11px;margin-bottom:6px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="info">🖱 滚轮缩放 · 拖拽平移 · 悬停看详情</div>
+<div id="tooltip"><div class="tt-title"></div><div class="tt-sub"></div><div class="tt-body"></div></div>
+<div id="controls">
+  <button onclick="zoomIn()">放大 +</button>
+  <button onclick="zoomOut()">缩小 -</button>
+  <button onclick="resetView()">重置</button>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d'),tooltip=document.getElementById('tooltip');
+let W,H,dpr,ox=0,oy=0,scale=1,dragging=false,lx,ly,hovered=null;
+
+function resize(){
+  dpr=window.devicePixelRatio||1;W=window.innerWidth;H=window.innerHeight;
+  canvas.width=W*dpr;canvas.height=H*dpr;
+  canvas.style.width=W+'px';canvas.style.height=H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);draw();
+}
+window.addEventListener('resize',resize);
+
+// ========== DATA ==========
+const nodes=[];
+const edges=[];
+
+// Center
+nodes.push({id:'center',x:0,y:0,r:68,type:'center',label:'博弈论\n分析框架',color:'#f59e0b',desc:'Prof. Jiang 的理论体系核心——一套从个人到文明的统一分析工具'});
+
+// ---- Layer 1: Three Pillars ----
+const pillarData=[
+  {id:'pillar1',label:'参与者\nPlayers',color:'#fbbf24',desc:'识别游戏中的所有角色，分析其真实动机和资源'},\
+  {id:'pillar2',label:'规则\nRules',color:'#fbbf24',desc:'区分明面规则、隐性规则和真正规则，判断哪些规则可以改变'},\
+  {id:'pillar3',label:'激励\nIncentives',color:'#fbbf24',desc:'看行为而非言语——真实激励决定行为。激励是游戏的驱动力'},
+];
+// Position pillars in left semicircle
+pillarData.forEach((p,i)=>{
+  const a=Math.PI*0.7+i*Math.PI*0.25;
+  p.x=Math.cos(a)*160;p.y=Math.sin(a)*160;p.r=48;
+  nodes.push({id:p.id,x:p.x,y:p.y,r:p.r,type:'pillar',label:p.label,color:p.color,desc:p.desc});
+  edges.push({from:'center',to:p.id});
+});
+
+// ---- Layer 2: Four Laws ----
+const lawData=[
+  {id:'law1',en:'Asymmetry',label:'非对称性\n定律',color:'#a78bfa',lecture:'#10',desc:'弱者拥有非对称优势。强者优势随时间转化为劣势。别在强者优势领域竞争，找到对手忽视的战场。','tips':'如果你弱：不要正面竞争；如果你强：警惕傲慢和僵化'},
+  {id:'law2',en:'Escalation',label:'升级\n定律',color:'#a78bfa',lecture:'#11',desc:'控制优于支配。拥有最多选择、最灵活的一方最终获胜。保持冷静 = 保持控制。','tips':'永远给自己留退路；冲突中降级处理'},
+  {id:'law3',en:'Eschatological\nConvergence',label:'末世论\n收敛定律',color:'#a78bfa',lecture:'#12',desc:'强大叙事能跨越时空协调人群。不同宗教的末世叙事趋同于同一组地缘政治结果。','tips':'注意塑造你行为的"叙事"从何而来'},
+  {id:'law4',en:'Proximity',label:'近因\n定律',color:'#a78bfa',lecture:'#14',desc:'最贴近你的游戏影响最大。内部冲突决定外部行为。理解他人 = 先看其内心冲突。','tips':'遇到问题先看最近、最直接的原因'},
+];
+lawData.forEach((l,i)=>{
+  const a=-Math.PI*0.5+i*Math.PI*0.22;
+  l.x=Math.cos(a)*320;l.y=Math.sin(a)*320;l.r=46;
+  nodes.push({id:l.id,x:l.x,y:l.y,r:l.r,type:'law',label:l.label,color:l.color,desc:l.desc,sub:l.lecture,tips:l.tips});
+  edges.push({from:'center',to:l.id});
+});
+
+// ---- Layer 3: Upper Structure ----
+const upData=[
+  {id:'up1',label:'人口\nDemographics',color:'#22c55e',desc:'人口结构（老龄化/年轻化）、生育率、城市化程度——决定社会游戏的底线参数'},
+  {id:'up2',label:'经济\nEconomy',color:'#22c55e',desc:'财富分配、债务水平、信用周期——决定游戏的奖励大小和分配方式'},
+  {id:'up3',label:'技术\nTechnology',color:'#22c55e',desc:'AI、自动化、能源技术——改变游戏的规则和参与者的能力'},
+  {id:'up4',label:'文化\nCulture',color:'#22c55e',desc:'宗教、价值观、社会规范——塑造参与者的偏好和激励'},
+  {id:'up5',label:'政治\nPolitics',color:'#22c55e',desc:'权力结构、法律体系、治理模式——决定游戏的仲裁者'},
+];
+upData.forEach((u,i)=>{
+  const a=Math.PI*1.12+i*Math.PI*0.18;
+  u.x=Math.cos(a)*280;u.y=Math.sin(a)*280;u.r=38;
+  nodes.push({id:u.id,x:u.x,y:u.y,r:u.r,type:'up',label:u.label,color:u.color,desc:u.desc});
+  edges.push({from:'center',to:u.id});
+});
+
+// ---- Layer 4: Application Levels ----
+const appData=[
+  {id:'app1',label:'个人层面\n自我认知 & 决策',color:'#06b6d4',desc:'识别你参与的游戏→分析参与者/规则/激励→选择最优策略→复盘反思'},
+  {id:'app2',label:'人际关系\n理解他人',color:'#06b6d4',desc:'近因定律：他人行为的根源是内部冲突\n升级定律：控制情绪 = 控制对话'},
+  {id:'app3',label:'职场/组织\n竞争与合作',color:'#06b6d4',desc:'非对称定律：找到对手忽视的领域\n纳什均衡：识别囚徒困境，寻找合作者'},
+  {id:'app4',label:'社会/文明\n理解世界',color:'#06b6d4',desc:'上层结构分析：理解大趋势\n叙事分析：识别集体幻觉\n预测历史：用框架预测走向'},
+];
+appData.forEach((a,i)=>{
+  const total=appData.length;
+  const arcWidth=Math.PI*0.6;
+  const startAngle=Math.PI*0.7;
+  const angle=startAngle-i*(arcWidth/(total-1));
+  a.x=Math.cos(angle)*500;a.y=Math.sin(angle)*500;a.r=44;
+  nodes.push({id:a.id,x:a.x,y:a.y,r:a.r,type:'app',label:a.label,color:a.color,desc:a.desc});
+  edges.push({from:'center',to:a.id});
+});
+
+// ---- Layer 5: Key Concepts (right side, outside law ring) ----
+const conceptData=[
+  {id:'c1',label:'纳什均衡\n合作优于对抗',color:'#f472b6',desc:'个体理性相加 = 集体非理性。打破囚徒困境需要：识别+合作者+改变激励'},
+  {id:'c2',label:'上层结构\n决定游戏形态',color:'#f472b6',desc:'同样的规则在不同时代 = 完全不同的游戏。人口/经济/技术在变，游戏也随之改变'},
+  {id:'c3',label:'地位驱动\n超越繁衍本能',color:'#f472b6',desc:'现代社会中，地位信号压倒原始激励。消费/职业/教育 = 地位竞赛的组成部分'},
+  {id:'c4',label:'游戏大师\n谁是规则制定者',color:'#f472b6',desc:'权力 = 定义规则的能力。警惕"被邀请的游戏"——规则可能为你输而设计'},
+  {id:'c5',label:'历史周期\n文明兴衰循环',color:'#f472b6',desc:'边远部落(高凝聚力)→征服帝国→腐败衰落→被新部落征服→循环。精英过剩是衰败信号'},
+];
+conceptData.forEach((c,i)=>{
+  const angle=-Math.PI*0.7-i*Math.PI*0.16;
+  c.x=Math.cos(angle)*520;c.y=Math.sin(angle)*520;c.r=40;
+  nodes.push({id:c.id,x:c.x,y:c.y,r:c.r,type:'concept',label:c.label,color:c.color,desc:c.desc});
+  // Connect to relevant law
+  const lawMap=['law1','law2','law3','law4'];
+  edges.push({from:lawMap[i%4],to:c.id,color:c.color+'30',width:0.6,dash:[4,4]});
+});
+
+// ========== RENDER ==========
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  
+  // Background
+  const bg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.6);
+  bg.addColorStop(0,'#111827');bg.addColorStop(1,'#0a0e1a');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  
+  // Grid dots
+  for(let x=0;x<W;x+=50)for(let y=0;y<H;y+=50){
+    ctx.fillStyle='rgba(255,255,255,.015)';
+    ctx.beginPath();ctx.arc(x,y,1,0,Math.PI*2);ctx.fill();
+  }
+  
+  ctx.save();
+  ctx.translate(ox,oy);
+  ctx.scale(scale,scale);
+  
+  // Edges
+  edges.forEach(e=>{
+    const from=nodes.find(n=>n.id===e.from);
+    const to=nodes.find(n=>n.id===e.to);
+    if(!from||!to)return;
+    ctx.beginPath();
+    ctx.strokeStyle=e.color||'rgba(255,255,255,.08)';
+    ctx.lineWidth=(e.width||1.2)/scale;
+    if(e.dash)ctx.setLineDash(e.dash.map(d=>d/scale));else ctx.setLineDash([]);
+    ctx.moveTo(from.x,from.y);
+    const mx=(from.x+to.x)/2,my=(from.y+to.y)/2;
+    const dx=to.x-from.x,dy=to.y-from.y;
+    ctx.quadraticCurveTo(mx-dy*0.08,my+dx*0.08,to.x,to.y);
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
+  
+  // Nodes
+  nodes.forEach(n=>{
+    const isH=hovered===n||(hovered&&nodes.some(x=>x.id===n.id&&x.type===n.type));
+    const isHovered=hovered===n;
+    const r=isHovered?n.r*1.15:n.r;
+    
+    // Glow
+    if(isHovered||n.type==='center'){
+      const gl=ctx.createRadialGradient(n.x,n.y,r*0.3,n.x,n.y,r*2.5);
+      gl.addColorStop(0,n.color+'25');gl.addColorStop(1,n.color+'00');
+      ctx.fillStyle=gl;ctx.beginPath();ctx.arc(n.x,n.y,r*2.5,0,Math.PI*2);ctx.fill();
+    }
+    
+    // Shape
+    ctx.beginPath();
+    if(n.type==='center'){
+      // Hexagon for center
+      for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/2;ctx.lineTo(n.x+Math.cos(a)*r,n.y+Math.sin(a)*r)}
+      ctx.closePath();
+    }else if(n.type==='law'){
+      // Diamond for laws
+      ctx.moveTo(n.x,n.y-r);ctx.lineTo(n.x+r*0.7,n.y);
+      ctx.lineTo(n.x,n.y+r);ctx.lineTo(n.x-r*0.7,n.y);ctx.closePath();
+    }else if(n.type==='up'||n.type==='concept'){
+      // Rounded rect
+      const w=r*1.8,h=r*1.5;
+      ctx.roundRect(n.x-w/2,n.y-h/2,w,h,8);
+    }else{
+      ctx.arc(n.x,n.y,r,0,Math.PI*2);
+    }
+    ctx.fillStyle=isHovered?n.color+'35':n.color+'18';
+    ctx.fill();
+    ctx.strokeStyle=isHovered?n.color:n.color+'90';
+    ctx.lineWidth=isHovered?2.5:1.5;
+    ctx.stroke();
+    
+    // Label
+    ctx.fillStyle=isHovered?'#fff':n.color;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    
+    if(n.type==='center'){
+      ctx.font='bold 18px "Noto Sans SC"';
+      const lines=n.label.split('\n');
+      lines.forEach((l,i)=>ctx.fillText(l,n.x,n.y+(i-(lines.length-1)/2)*22));
+    }else if(n.type==='pillar'){
+      ctx.font='bold 13px "Noto Sans SC"';
+      const lines=n.label.split('\n');
+      lines.forEach((l,i)=>ctx.fillText(l,n.x,n.y+(i-(lines.length-1)/2)*17));
+    }else if(n.type==='law'){
+      ctx.font='bold 11px "Noto Sans SC"';
+      const lines=n.label.split('\n');
+      lines.forEach((l,i)=>ctx.fillText(l,n.x,n.y+(i-(lines.length-1)/2)*14));
+    }else if(n.type==='concept'){
+      ctx.font='bold 11px "Noto Sans SC"';
+      const lines=n.label.split('\n');
+      lines.forEach((l,i)=>ctx.fillText(l,n.x,n.y+(i-(lines.length-1)/2)*14));
+    }else{
+      ctx.font='bold 11px "Noto Sans SC"';
+      const lines=n.label.split('\n');
+      lines.forEach((l,i)=>ctx.fillText(l,n.x,n.y+(i-(lines.length-1)/2)*14));
+    }
+  });
+  
+  ctx.restore();
+}
+
+// Hit test
+function hitTest(mx,my){
+  const x=(mx-ox)/scale,y=(my-oy)/scale;
+  for(let i=nodes.length-1;i>=0;i--){
+    const n=nodes[i],dx=x-n.x,dy=y-n.y;
+    if(dx*dx+dy*dy<=n.r*n.r*1.3)return n;
+  }
+  return null;
+}
+
+// Events
+canvas.addEventListener('mousedown',e=>{dragging=true;lx=e.clientX;ly=e.clientY});
+canvas.addEventListener('mousemove',e=>{
+  if(dragging){ox+=e.clientX-lx;oy+=e.clientY-ly;lx=e.clientX;ly=e.clientY;draw();}
+  const n=hitTest(e.clientX,e.clientY);
+  if(n!==hovered){
+    hovered=n;
+    canvas.style.cursor=n?'pointer':'grab';
+    if(n){
+      const tt=tooltip;
+      tt.style.display='block';
+      tt.style.left=Math.min(e.clientX+18,W-330)+'px';
+      tt.style.top=Math.min(e.clientY+18,H-250)+'px';
+      tt.querySelector('.tt-title').textContent=n.label.replace(/\n/g,' · ');
+      tt.querySelector('.tt-sub').textContent=n.sub?'📺 '+n.sub:'';
+      let body=n.desc||'';
+      if(n.tips)body+='\n\n💡 '+n.tips;
+      tt.querySelector('.tt-body').textContent=body;
+    }else{tooltip.style.display='none';}
+    draw();
+  }
+});
+canvas.addEventListener('mouseup',()=>{dragging=false});
+canvas.addEventListener('mouseleave',()=>{dragging=false;hovered=null;tooltip.style.display='none';draw()});
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const d=e.deltaY>0?.9:1.1;
+  const mx=e.clientX,my=e.clientY;
+  ox=mx-(mx-ox)*d;oy=my-(my-oy)*d;scale*=d;
+  scale=Math.max(.25,Math.min(3.5,scale));draw();
+},{passive:false});
+
+// Touch
+let tdist=0;
+canvas.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){dragging=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY}
+  else if(e.touches.length===2)tdist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+});
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(e.touches.length===1&&dragging){ox+=e.touches[0].clientX-lx;oy+=e.touches[0].clientY-ly;lx=e.touches[0].clientX;ly=e.touches[0].clientY;draw()}
+  else if(e.touches.length===2){
+    const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    const ratio=d/tdist;const mx=(e.touches[0].clientX+e.touches[1].clientX)/2,my=(e.touches[0].clientY+e.touches[1].clientY)/2;
+    ox=mx-(mx-ox)*ratio;oy=my-(my-oy)*ratio;scale*=ratio;scale=Math.max(.25,Math.min(3.5,scale));tdist=d;draw();
+  }
+},{passive:false});
+canvas.addEventListener('touchend',()=>{dragging=false});
+
+function zoomIn(){scale*=1.3;draw();}
+function zoomOut(){scale/=1.3;draw();}
+function resetView(){ox=W/2;oy=H/2;scale=0.65;draw();}
+
+// RoundRect polyfill for older browsers
+if(!CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){
+    this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);
+    this.arcTo(x+w,y+h,x,y+h,r);this.arcTo(x,y+h,x,y,r);
+    this.arcTo(x,y,x+w,y,r);return this;
+  };
+}
+
+// Init
+resize();ox=W/2;oy=H/2;scale=0.65;draw();
+</script>
+</body>
+</html>
